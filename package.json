@@ -1,0 +1,24 @@
+{
+  "name": "right-of-way",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Right of Way: set the lights, lay out the lanes, watch rush hour. Score is throughput minus road rage.",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "tune": "tsx scripts/tune.ts",
+    "icons": "node scripts/gen-icons.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^2.1.8"
+  }
+}
