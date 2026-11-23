@@ -441,17 +441,42 @@ button:disabled {
 .hint {
   margin: 0;
   color: var(--dim);
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 12.5px;
+  line-height: 1.35;
   text-align: center;
-  min-height: 2.8em;
+  min-height: 0;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .hint--error {
   color: var(--furious);
+}
+.forecast {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.35;
+  text-align: center;
+  font-weight: 600;
+  min-height: 2.7em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border-left: 3px solid var(--line);
+}
+.forecast--ok {
+  border-left-color: var(--green);
+}
+.forecast--warn {
+  border-left-color: var(--yellow);
+}
+.forecast--bad {
+  border-left-color: var(--furious);
 }
 .btn-go {
   height: 54px;

@@ -9,6 +9,7 @@ import {
   rightOf,
   type Approach,
   type ApproachLane,
+  type Forecast,
   type Geometry,
   type LaneAssignment,
   type LevelDef,
@@ -107,6 +108,7 @@ export class Renderer {
     mode: 'plan' | 'watch' | 'score',
     dt: number,
     highlightLane: { approach: Approach; index: number } | null,
+    fc: Forecast | null = null,
   ): void {
     const ctx = this.ctx;
     this.time += dt;
@@ -123,7 +125,7 @@ export class Renderer {
       this.particles.draw(ctx, this.camera);
       this.drawBacklogBadges(sim, geometry);
     } else {
-      this.drawDemandLabels(level, geometry);
+      this.drawDemandLabels(level, geometry, fc);
     }
     ctx.restore();
   }
@@ -517,10 +519,12 @@ export class Renderer {
     }
   }
 
-  /** In plan mode: expected traffic per approach, drawn at the screen edge. */
-  private drawDemandLabels(level: LevelDef, g: Geometry): void {
+  /** In plan mode: a card per approach with its demand and the live forecast for it. */
+  private drawDemandLabels(level: LevelDef, g: Geometry, fc: Forecast | null): void {
     const ctx = this.ctx;
     const names: Record<Approach, string> = { N: 'from North', E: 'from East', S: 'from South', W: 'from West' };
+    const statusText = { flows: 'Flows', tight: 'Tight', 'backs-up': 'Backs up' } as const;
+    const statusColor = { flows: PALETTE.green, tight: PALETTE.yellow, 'backs-up': PALETTE.red } as const;
     for (const a of APPROACHES) {
       const d = level.demand[a];
       if (d.peak <= 0) continue;
@@ -536,26 +540,45 @@ export class Renderer {
       const side = (n * LANE_WIDTH) / 2 + 7.5;
       const far = { x: mid.x - f.x * 34 + r.x * side, y: mid.y - f.y * 34 + r.y * side };
       let [px, py] = this.toScreen(far.x, far.y);
-      px = Math.max(50, Math.min(this.width - 50, px));
-      py = Math.max(28, Math.min(this.height - 28, py));
+      px = Math.max(62, Math.min(this.width - 62, px));
+      py = Math.max(36, Math.min(this.height - 36, py));
       const parts: string[] = [];
       const tot = d.turns.L + d.turns.T + d.turns.R;
       if (d.turns.L > 0) parts.push(`↰${Math.round((100 * d.turns.L) / tot)}%`);
       if (d.turns.R > 0) parts.push(`↱${Math.round((100 * d.turns.R) / tot)}%`);
-      ctx.fillStyle = 'rgba(20,26,31,0.82)';
-      ctx.strokeStyle = 'rgba(138,152,163,0.5)';
-      ctx.lineWidth = 1;
-      const w = 92;
-      roundRect(ctx, px - w / 2, py - 17, w, 34, 8);
+      const af = fc ? fc.approaches[a] : null;
+      const w = 108;
+      const h = af ? 54 : 34;
+      const color = af ? statusColor[af.status] : 'rgba(138,152,163,0.5)';
+      ctx.fillStyle = 'rgba(20,26,31,0.88)';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = af ? 1.5 : 1;
+      roundRect(ctx, px - w / 2, py - h / 2, w, h, 8);
       ctx.fill();
       ctx.stroke();
+      const top = py - h / 2;
       ctx.fillStyle = PALETTE.text;
       ctx.font = 'bold 12px system-ui, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`${d.peak}/h`, px, py - 3);
+      ctx.fillText(af ? `${d.peak}/h  ·  red ${af.longestRed}s` : `${d.peak}/h`, px, top + 14);
       ctx.fillStyle = PALETTE.textDim;
       ctx.font = '10px system-ui, sans-serif';
-      ctx.fillText(parts.length ? `${names[a]} ${parts.join(' ')}` : names[a], px, py + 10);
+      ctx.fillText(parts.length ? `${names[a]} ${parts.join(' ')}` : names[a], px, top + 26);
+      if (af) {
+        // Load bar: how full the busiest lane is. Past the end means a growing queue.
+        const bx = px - w / 2 + 8;
+        const bw = w - 16;
+        const by = top + 32;
+        ctx.fillStyle = 'rgba(138,152,163,0.25)';
+        roundRect(ctx, bx, by, bw, 5, 2.5);
+        ctx.fill();
+        ctx.fillStyle = color;
+        roundRect(ctx, bx, by, bw * Math.min(1, af.vc), 5, 2.5);
+        ctx.fill();
+        if (af.vc > 1) ctx.fillRect(bx + bw - 1, by - 2, 2, 9);
+        ctx.font = 'bold 10px system-ui, sans-serif';
+        ctx.fillText(statusText[af.status].toUpperCase(), px, top + 48);
+      }
     }
   }
 }

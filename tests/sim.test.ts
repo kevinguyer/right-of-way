@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS, clonePlan } from '../src/levels/levels';
-import { POCKET_LENGTH, Simulation, buildGeometry, validatePlan } from '../src/sim';
+import { POCKET_LENGTH, Simulation, buildGeometry, forecast, validatePlan } from '../src/sim';
 
 describe('simulation', () => {
   it('is deterministic for the same seed', () => {
@@ -89,5 +89,29 @@ describe('pocket lanes', () => {
     }
     expect(sawFeeder).toBe(true);
     expect(sawMerged).toBe(true);
+  });
+});
+
+describe('forecast', () => {
+  it('agrees with the sim about First Light: even split backs up, skewed split flows', () => {
+    const level = LEVELS[0];
+    const even = clonePlan(level.defaultPlan);
+    even.greens = [20, 20];
+    const skewed = clonePlan(level.defaultPlan);
+    skewed.greens = [35, 10];
+    expect(forecast(level, even).approaches.N.status).toBe('backs-up');
+    expect(forecast(level, even).tone).toBe('bad');
+    expect(forecast(level, skewed).approaches.N.status).toBe('flows');
+    expect(forecast(level, skewed).tone).toBe('ok');
+  });
+
+  it('reports the longest red per approach from the cycle', () => {
+    const level = LEVELS[0];
+    const plan = clonePlan(level.defaultPlan);
+    plan.greens = [35, 10];
+    const f = forecast(level, plan);
+    // E/W sit through the N/S green plus its yellow and all-red, plus their own all-red.
+    expect(f.approaches.E.longestRed).toBe(f.cycle - (10 + 3));
+    expect(f.longestRedApproaches).toEqual(['E', 'W']);
   });
 });

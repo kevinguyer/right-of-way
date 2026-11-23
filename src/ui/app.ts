@@ -13,11 +13,13 @@ import {
   allowedAssignments,
   buildGeometry,
   cycleLength,
+  forecast,
   hashString,
   pointAt,
   rightOf,
   validatePlan,
   type Approach,
+  type Forecast,
   type Geometry,
   type LevelDef,
   type Movement,
@@ -56,6 +58,9 @@ export class App {
   private seed = 1;
   private speed = 3;
   private highlightLane: { approach: Approach; index: number } | null = null;
+  private fc: Forecast | null = null;
+  private cycleNumEl: HTMLElement | null = null;
+  private forecastEl: HTMLElement | null = null;
   private highlightTimer = 0;
 
   // DOM
@@ -90,6 +95,8 @@ export class App {
 
   private showLevels(): void {
     this.stopLoop();
+    this.resizeObs?.disconnect();
+    this.resizeObs = null;
     this.root.innerHTML = '';
     const wrap = el('div', 'levels');
     const header = el('header', 'levels__header');
@@ -199,7 +206,7 @@ export class App {
     this.dial = new PhaseDial(PATTERNS[this.plan.pattern], this.plan.greens);
     this.dial.onChange = (greens) => {
       this.plan.greens = greens;
-      this.renderPanel();
+      this.refreshReadout();
     };
     this.stage.appendChild(this.dial.el);
 
@@ -276,6 +283,7 @@ export class App {
       plus.setAttribute('aria-label', 'Longer cycle');
       const label = el('div', 'cycle__label');
       label.innerHTML = `<span class="cycle__num">${cycleLength(this.plan.greens)}</span><span class="cycle__unit">s cycle</span>`;
+      this.cycleNumEl = label.querySelector('.cycle__num');
       minus.addEventListener('click', () => {
         this.plan.greens = this.dial.adjustCycle(-5);
         this.renderPanel();
@@ -288,11 +296,13 @@ export class App {
       p.appendChild(cyc);
 
       const errors = validatePlan(this.level, this.plan);
+      const fcEl = el('p', 'forecast');
+      this.forecastEl = fcEl;
+      p.appendChild(fcEl);
       const hint = el('p', errors.length ? 'hint hint--error' : 'hint');
-      hint.textContent = errors.length
-        ? errors[0]
-        : this.level.blurb;
+      hint.textContent = errors.length ? errors[0] : this.level.blurb;
       p.appendChild(hint);
+      this.refreshReadout();
 
       const go = el('button', 'btn-go');
       go.textContent = 'Go';
@@ -327,6 +337,22 @@ export class App {
         <span><i class="sw sw--angry"></i>angry</span>
         <span><i class="sw sw--furious"></i>furious</span>`;
       p.appendChild(legend);
+    }
+  }
+
+  /** Recompute the forecast and update only the live readouts (cheap enough for every drag event). */
+  private refreshReadout(): void {
+    if (this.mode !== 'plan') return;
+    this.fc = validatePlan(this.level, this.plan).length ? null : forecast(this.level, this.plan);
+    if (this.cycleNumEl) this.cycleNumEl.textContent = `${cycleLength(this.plan.greens)}`;
+    if (this.forecastEl) {
+      if (this.fc) {
+        this.forecastEl.textContent = this.fc.verdict;
+        this.forecastEl.className = `forecast forecast--${this.fc.tone}`;
+      } else {
+        this.forecastEl.textContent = 'Fix the lanes to see a forecast.';
+        this.forecastEl.className = 'forecast forecast--bad';
+      }
     }
   }
 
@@ -477,8 +503,6 @@ export class App {
   private stopLoop(): void {
     if (this.raf) cancelAnimationFrame(this.raf);
     this.raf = 0;
-    this.resizeObs?.disconnect();
-    this.resizeObs = null;
   }
 
   private frame(dtReal: number): void {
@@ -527,6 +551,7 @@ export class App {
       this.mode,
       dtReal * (this.mode === 'watch' ? this.speed : 1),
       this.highlightLane,
+      this.mode === 'plan' ? this.fc : null,
     );
   }
 
